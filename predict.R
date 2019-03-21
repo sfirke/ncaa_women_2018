@@ -135,7 +135,7 @@ for (i in 1:10) {
   fold_list = sample(fold5list)
   for (k in 1:5) folds[[k]] = which(fold_list == k)
   
-  set.seed(120)
+  set.seed(11)
   xgb_cv = 
     xgb.cv(
       params = xgb_parameters,
@@ -177,7 +177,7 @@ for (i in 1:10) {
 
 ### Run predictions
 
-sub$Season = 2018
+sub$Season = 2019
 sub$T1 = as.numeric(substring(sub$ID,6,9))
 sub$T2 = as.numeric(substring(sub$ID,11,14))
 
@@ -199,19 +199,34 @@ for (i in 1:10) {
 }
 Z$Pred = Reduce("+", probs) / 10
 
-### Better be safe than sorry
-Z$Pred[Z$Pred <= 0.025] = 0.025
-Z$Pred[Z$Pred >= 0.975] = 0.975
+# If picking up at this point from earlier written out version:
+# Z <- read_csv("predictions/sub.csv")
 
-### Anomaly event happened only once before - be brave
-Z$Pred[Z$Seed1 == 16 & Z$Seed2 == 1] = 0
-Z$Pred[Z$Seed1 == 15 & Z$Seed2 == 2] = 0
-Z$Pred[Z$Seed1 == 14 & Z$Seed2 == 3] = 0
-Z$Pred[Z$Seed1 == 13 & Z$Seed2 == 4] = 0
-Z$Pred[Z$Seed1 == 1 & Z$Seed2 == 16] = 1
-Z$Pred[Z$Seed1 == 2 & Z$Seed2 == 15] = 1
-Z$Pred[Z$Seed1 == 3 & Z$Seed2 == 14] = 1
-Z$Pred[Z$Seed1 == 4 & Z$Seed2 == 13] = 1
+## There are some values produced outside of 0-1
+Z$Pred[Z$Pred <= 0.01] <- 0.01
+Z$Pred[Z$Pred >= 0.99] <- 0.99
 
-write.csv(select(Z, ID, Pred), "sub.csv", row.names = FALSE)
+## Add some noise to separate from others using this
+jiggle <- function(x){
+  diff <- min(
+    c(abs(x-1), x)
+  )
+  spice <- runif(1, 0, diff)/12 # change by 0-1/12 the way to the edge 
+  spice <- sample(c(spice, spice * -1), 1)
+  x + spice
+}
+
+set.seed(11)
+Z$spiced <- purrr::map_dbl(Z$Pred, jiggle)
+vanilla <- Z
+daring <- Z
+# Pick a trifecta for the lucky bracket
+daring$spiced[Z$ID == "2019_3141_3277"] <- 0 # MSU over Central Michigan
+daring$spiced[Z$ID == "2019_3243_3276"] <- 0 # Michigan over K State
+daring$spiced[Z$ID == "2019_3138_3353"] <- 1 # Buffalo over Rutgers
+
+
+dir.create("predictions/")
+write_csv(select(vanilla, ID, Pred), "predictions/vanilla.csv")
+write_csv(select(daring, ID, Pred), "predictions/daring.csv")
 
