@@ -228,5 +228,5 @@ daring$spiced[Z$ID == "2019_3138_3353"] <- 1 # Buffalo over Rutgers
 
 dir.create("predictions/")
 write_csv(select(vanilla, ID, Pred), "predictions/vanilla.csv")
-write_csv(select(daring, ID, Pred), "predictions/daring.csv")
+write_csv(select(daring, ID, Pred = spiced), "predictions/daring.csv")
 
